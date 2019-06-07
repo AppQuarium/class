@@ -1,0 +1,339 @@
+import android.app.ProgressDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
+import android.content.Intent;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.view.View;
+import android.widget.Button;
+import android.widget.SeekBar;
+import android.widget.TextView;
+import android.widget.Toast;
+import java.io.IOException;
+import java.util.UUID;
+
+public class Control extends AppCompatActivity {
+    Button btnTest,btnSync,btnDis,btnIP;
+    SeekBar riego,conteo;
+    TextView textFrecuencia,textSeg,monitoreo;
+    String address = null;
+    private ProgressDialog progress;
+    char a;
+    String[] x;
+    BluetoothAdapter myBluetooth = null;
+    BluetoothSocket btSocket = null;
+    static final UUID myUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private boolean isBtConnected = false;
+
+    protected void onCreate(Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+        Intent newint = getIntent();
+
+        //recibimos la mac address obtenida en la actividad anterior
+        address = newint.getStringExtra(MainActivity.EXTRA_ADDRESS);
+
+        //cargamos nuestro layot activitycontrol.xml
+        setContentView(R.layout.activity_control);
+
+        btnTest = (Button)findViewById(R.id.button2);
+        btnSync = (Button)findViewById(R.id.button3);
+        btnDis = (Button)findViewById(R.id.button4);
+        btnIP = (Button)findViewById(R.id.button5);
+        riego = (SeekBar)findViewById(R.id.seekBar);
+        textFrecuencia = (TextView)findViewById(R.id.lumn);
+        //proteccion = (SeekBar)findViewById(R.id.seekBar2);
+        conteo = (SeekBar)findViewById(R.id.seekBar3);
+        //textRango = (TextView)findViewById(R.id.rango);
+        textSeg = (TextView)findViewById(R.id.textseg);
+        monitoreo =(TextView)findViewById(R.id.textView2);
+
+        //llamado a la clase conectar
+        new ConnectBT().execute();
+
+        //metodo setonClickListener botón mover
+        btnTest.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                //llamado al metodo turnon();
+                turnOn();
+            }
+        });
+
+        //metodo setonClickListener botón sincronizar
+        btnSync.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v)
+            {
+                //llamado al metodo sync();
+                sync();
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                sync();
+            }
+        });
+
+        btnIP.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (x==null){
+                    msg("debe sincronizar para enviar datos");
+                }
+                else
+                {
+
+                    Disconnect();
+                    // hacemos un intent para cambiar de activity
+                    Intent i = new Intent(Control.this, Ip.class);
+                    String datos=("Temperatura: " + x[0] + "°C  " + "   Humedad: " + x[1]);
+                    //Cambiamos de activity. Incluyendo en un extra la dirección MAC del dispositivo seleccionado
+                    i.putExtra("datos", datos);
+                    startActivity(i);
+                }
+
+            }
+        });
+
+        //metodo setonClickListener botón desconectar
+        btnDis.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                //llamado al metodo Disconnect();
+                Disconnect();
+            }
+        });
+
+//metodo setOnseekbarChangeListener en el objeto riego nos permite actualizar el texto en el label textFrecuencia de acuerdo a su estado
+         riego.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+             @Override
+             public void onStopTrackingTouch(SeekBar seekBar) {
+                 // TODO Auto-generated method stub
+             }
+
+             @Override
+             public void onStartTrackingTouch(SeekBar seekBar) {
+                 // TODO Auto-generated method stub
+             }
+
+             @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+
+                if(progress==0)
+                {
+                    textFrecuencia.setText("Regar");
+                }
+                else if(progress==1)
+                {
+                    textFrecuencia.setText("6H");
+                }
+                else if(progress==2)
+                {
+                    textFrecuencia.setText("12H");
+                }
+                else if(progress==3)
+                {
+                    textFrecuencia.setText("24H");
+                }
+                else if(progress==4)
+                {
+                    textFrecuencia.setText("48H");
+                }
+
+                try
+                {
+//como el metodo setOnseekbarChangeListener detecta cambios en la seekbar vamos a transferir el estado al arduino con la siguiente función
+                    btSocket.getOutputStream().write(String.valueOf(progress).getBytes());
+                }
+                catch (IOException e)
+                {
+                }
+            }
+        });
+
+
+//metodo setOnseekbarChangeListener en el objeto conteo nos permite actualizar el texto en el label textSeg de acuerdo a su estado
+        conteo.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                // TODO Auto-generated method stub
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                // TODO Auto-generated method stub
+            }
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if(progress==0){
+                    a='a';
+                }else if(progress==1){
+                    a='b';
+                }
+                else if(progress==2){
+                    a='c';
+                }
+                else if(progress==3){
+                    a='d';
+                }
+                else if(progress==4){
+                    a='e';
+                }
+                else if(progress==5){
+                    a='f';
+                }
+                else if(progress==6){
+                    a='g';
+                }
+                else if(progress==7){
+                    a='h';
+                }
+                else if(progress==8){
+                    a='i';
+                }
+                else if(progress==9){
+                    a='j';
+                }
+                try
+                {
+                    textSeg.setText(progress*10+" segundos");
+//como el metodo setOnseekbarChangeListener detecta cambios en la seekbar vamos a transferir el estado de la variable “a” al arduino con la siguiente función
+btSocket.getOutputStream().write(String.valueOf(a).getBytes());
+                }
+                catch (IOException e)
+                {
+                }
+            }
+        });
+    }
+
+    //metodo Dissconnect
+    private void Disconnect()
+    {
+        if (btSocket!=null)
+        {
+            try
+            {
+                btSocket.close();
+            }
+            catch (IOException e)
+            { msg("Error");}
+        }
+        finish();
+
+    }
+
+    //metodo Dissconnect
+    private void sync()
+        {
+            x=null;
+            //si el socket es diferente de null vamos a intentar comunicarnos
+        if (btSocket!=null)
+            try {
+                //enviamos el carácter “s” a nuestro arduino esperando un String con datos
+                btSocket.getOutputStream().write("s".toString().getBytes());
+                int bytesAvailable = btSocket.getInputStream().available();
+                byte[] packetBytes = new byte[bytesAvailable];
+                if (bytesAvailable > 0) {
+                    btSocket.getInputStream().read(packetBytes);
+                    //si obtenemos una respuesta mayor a 0 bytes asignamos la respuesta a un string “s”
+                    String s = new String(packetBytes);
+                     x = s.split(" ");
+                    //dividimos la cadena string obtenida en la respuesta actualizando todos los estados del prototipo además de temperatura y humedad
+                    monitoreo.setText("Temperatura: " + x[0] + "°C  " + "   Humedad: " + x[1]);
+                    //riego.setProgress(Integer.parseInt(x[2]));
+                    //proteccion.setProgress(Integer.parseInt(x[4]));
+                    //conteo.setProgress(Integer.parseInt(x[3]));
+                }
+            } catch (IOException e) {
+                msg("Error");
+            }
+    }
+    //metodo turnOn
+    private void turnOn()
+    {
+        if (btSocket!=null)
+        {
+            try
+            {
+                //enviamos el carácter “r” a nuestro arduino para test en iluminacion
+                btSocket.getOutputStream().write("r".toString().getBytes());
+            }
+            catch (IOException e)
+            {
+                msg("Error");
+            }
+        }
+    }
+
+
+    //metodo msg recibe un string y llama la función toast
+    private void msg(String s)
+    {
+        Toast.makeText(getApplicationContext(),s, Toast.LENGTH_LONG).show();
+    }
+
+
+
+    private class ConnectBT extends AsyncTask<Void, Void, Void>  // UI thread
+    {
+        private boolean ConnectSuccess = true;
+
+        @Override
+        protected void onPreExecute()
+        {
+            progress = ProgressDialog.show(Control.this, "Conectando...", "Por favor espere!!!");
+        }
+
+        @Override
+        protected Void doInBackground(Void... devices)
+        {
+            try
+            {
+                if (btSocket == null || !isBtConnected)
+                {
+                    myBluetooth = BluetoothAdapter.getDefaultAdapter();
+                    BluetoothDevice dispositivo = myBluetooth.getRemoteDevice(address);
+                    //conectamos al dispositivo y chequeamos si está disponible
+
+                    btSocket = dispositivo.createInsecureRfcommSocketToServiceRecord(myUUID);
+                    BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
+                    btSocket.connect();
+                   // btSocket.getOutputStream().write("r".toString().getBytes());
+                }
+            }
+            catch (IOException e)
+            {
+                ConnectSuccess = false;
+            }
+            return null;
+        }
+        @Override
+        protected void onPostExecute(Void result)
+        {
+            super.onPostExecute(result);
+
+            if (!ConnectSuccess)
+            {
+            //llamamos al metodo msg con la cadena string “Conexion fallida”
+                msg("Conexión Fallida");
+                finish();
+            }
+            else
+            {
+            //llamamos al metodo msg con la cadena string “Conexion fallida”
+                msg("Conectado");
+                isBtConnected = true;
+            }
+            progress.dismiss();
+        }
+    }
+}
