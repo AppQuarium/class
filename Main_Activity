@@ -1,0 +1,122 @@
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
+import java.util.ArrayList;
+import java.util.Set;
+
+public class MainActivity extends AppCompatActivity {
+
+    private Button btnVinculados,btnSalir;
+    private ListView listaDispositivos;
+
+    //Bluetooth
+
+    private BluetoothAdapter myBluetooth = null;
+    private Set<BluetoothDevice> dispVinculados;
+    public static String EXTRA_ADDRESS = "device_address";
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        //Declaramos nuestros componenetes relacionándolos con los del layout
+        btnVinculados = (Button)findViewById(R.id.button);
+        btnSalir = (Button)findViewById(R.id.buttonsalir);
+        listaDispositivos = (ListView)findViewById(R.id.listView);
+
+        //Comprobamos que el dispositivo tiene bluetooth
+        myBluetooth = BluetoothAdapter.getDefaultAdapter();
+
+        if(myBluetooth == null)
+        {
+            //mensaje, indicando al usuario que no tiene conexión bluetooth
+
+            Toast.makeText(getApplicationContext(), "Bluetooth no disponible // Aplicacion Incompatible", Toast.LENGTH_LONG).show();
+
+            //finalizamos la aplicación
+            finish();
+        }
+        else if(!myBluetooth.isEnabled())
+        {
+            //Pregunta al usuario si desea encender el bluetooth
+            Intent turnBTon = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(turnBTon,1);
+        }
+
+        btnVinculados.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v)
+            {   // llamada al método listaDispositivosvinculados();
+                listaDispositivosvinculados();
+            }
+        });
+
+        btnSalir.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v)
+            {
+
+// finalizamos nuestra aplicación
+                finish();
+                System.exit(0);
+                Intent intent = new Intent(Intent.ACTION_MAIN);
+                intent.addCategory(Intent.CATEGORY_HOME);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+// se inicia el activity home y se cierra por completo la aplicación green blind
+                startActivity(intent);
+            }
+        });
+
+    }
+    private void listaDispositivosvinculados()
+    {
+        dispVinculados = myBluetooth.getBondedDevices();
+        ArrayList list = new ArrayList();
+
+        if (dispVinculados.size()>0)
+        {
+            for(BluetoothDevice bt : dispVinculados)
+            {
+                list.add(bt.getName() + "\n" + bt.getAddress());
+                //Obtenemos los nombres y direcciones MAC de los disp. vinculados
+            }
+        }
+        else
+        {
+            Toast.makeText(getApplicationContext(), "No se han encontrado Acuarios vinculados", Toast.LENGTH_LONG).show();
+        }
+
+        final ArrayAdapter adapter = new   ArrayAdapter(this,android.R.layout.simple_list_item_1, list);
+        listaDispositivos.setAdapter(adapter);
+        listaDispositivos.setOnItemClickListener(myListClickListener);
+    }
+
+    private AdapterView.OnItemClickListener myListClickListener = new AdapterView.OnItemClickListener()
+    {
+        public void onItemClick (AdapterView<?> av, View v, int arg2, long arg3)
+        {
+            // obtenemos la direccion MAC del dispositivo
+            String info = ((TextView) v).getText().toString();
+            String address = info.substring(info.length() - 17);
+
+            // hacemos un intent para cambiar de activity
+            Intent i = new Intent(MainActivity.this, Control.class);
+
+            //Cambiamos de activity. Incluyendo en un extra la dirección MAC del dispositivo seleccionado
+            i.putExtra(EXTRA_ADDRESS, address);
+            startActivity(i);
+        }
+    };
+
+}
